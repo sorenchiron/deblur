@@ -8,6 +8,16 @@ def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
                      padding=1, bias=False)
 
+def conv5x5(in_planes, out_planes, stride=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=5, stride=stride,
+                     padding=2, bias=False)
+
+def conv7x7(in_planes, out_planes, stride=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=5, stride=stride,
+                     padding=3, bias=False)
+
 
 class BasicBlock(nn.Module):
     expansion = 1 # output channels = planes*1
@@ -85,20 +95,26 @@ class Bottleneck(nn.Module):
 class DeblurNet(nn.Module):
 
     def __init__(self, block, layers,
-            filters_basis=16,
+            filter_basis=16,
             activation=nn.ReLU):
         super(DeblurNet, self).__init__()
-        self.fbase = fbase = filters_basis
+        self.fbase = fbase = filter_basis
         self.input_image_channels = 3
         self.inplanes = fbase
         self.activation = activation
         self.conv1 = nn.Conv2d(self.input_image_channels, fbase, 
-                                kernel_size=7, stride=2, 
+                                kernel_size=7, stride=1, 
                                 padding=3, bias=False)
         self.layer1 = self._make_layer(block, fbase  , layers[0])
         self.layer2 = self._make_layer(block, fbase*2, layers[1], stride=1)
         self.layer3 = self._make_layer(block, fbase*4, layers[2], stride=1)
         self.layer4 = self._make_layer(block, fbase*8, layers[3], stride=1)
+        
+        self.conv5 = nn.Conv2d(fbase*8*block.expansion,3,
+            kernel_size=3,bias=False,padding=1)
+        
+        self.tanh = nn.Tanh()
+
         self.init_param()
 
     def _make_layer(self, block, planes, blocks, stride=1):
@@ -134,9 +150,10 @@ class DeblurNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        x = self.conv5(x)
+        x = x + x_original
+        x = self.tanh(x)
         return x
-
-
 
 class ResNet(nn.Module):
 
